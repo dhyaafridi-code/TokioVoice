@@ -1,11 +1,11 @@
 {
-  "name": "discord-bot-final",
-  "version": "2.2.0",
-  "description": "Bot Discord - Final Fixed Version",
-  "main": "bot-final.js",
+  "name": "discord-bot-v3",
+  "version": "3.0.0",
+  "description": "Bot Discord - youtube-ext version",
+  "main": "bot-v3.js",
   "scripts": {
-    "start": "node bot-final.js",
-    "dev": "nodemon bot-final.js"
+    "start": "node bot-v3.js",
+    "dev": "nodemon bot-v3.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
@@ -15,8 +15,8 @@
     "google-tts-api": "^2.0.1",
     "node-cron": "^3.0.3",
     "opusscript": "^0.0.8",
-    "play-dl": "^1.9.7",
-    "sodium-native": "^4.0.4"
+    "sodium-native": "^4.0.4",
+    "youtube-ext": "^1.1.25"
   },
   "engines": {
     "node": ">=18.0.0"
