@@ -1,11 +1,11 @@
 {
-  "name": "discord-voice-bot-full",
+  "name": "discord-bot-new",
   "version": "2.0.0",
-  "description": "Bot vocal Discord complet avec toutes les fonctionnalités",
-  "main": "bot-full.js",
+  "description": "Bot Discord - Mzaya jadida bila tatabo3",
+  "main": "bot-new.js",
   "scripts": {
-    "start": "node bot-full.js",
-    "dev": "nodemon bot-full.js"
+    "start": "node bot-new.js",
+    "dev": "nodemon bot-new.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
