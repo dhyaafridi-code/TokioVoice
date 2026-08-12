@@ -22,11 +22,10 @@ const {
 
 const express = require('express');
 const cron = require('node-cron');
-const ytdl = require('@distube/ytdl-core');
+const playdl = require('play-dl');
 const googleTTS = require('google-tts-api');
 const fs = require('fs');
 const https = require('https');
-const ffmpeg = require('ffmpeg-static');
 const { spawn } = require('child_process');
 
 // ============================================
@@ -34,8 +33,6 @@ const { spawn } = require('child_process');
 // ============================================
 const OWNER_ID = process.env.OWNER_ID || '851812052628275280';
 const PORT = process.env.PORT || 3000;
-
-console.log('🔧 ffmpeg path:', ffmpeg);
 
 // ============================================
 // DATABASE
@@ -216,7 +213,7 @@ function updateStats(userId, action) {
 }
 
 // ============================================
-// TTS FUNCTION (FIXED)
+// TTS FUNCTION (FIXED - direct stream)
 // ============================================
 async function playTTS(channelId, guild, text) {
     return new Promise(async (resolve) => {
@@ -236,48 +233,26 @@ async function playTTS(channelId, guild, text) {
             });
             connection.subscribe(player);
 
-            // Download audio to temp file then play with ffmpeg
-            const tempFile = `./tts_${Date.now()}.mp3`;
-            const file = fs.createWriteStream(tempFile);
-
+            // Direct HTTPS stream with Opus encoding via prism-media
             https.get(url, (response) => {
-                response.pipe(file);
-                file.on('finish', () => {
-                    file.close();
-
-                    const ffmpegProcess = spawn(ffmpeg, [
-                        '-i', tempFile,
-                        '-analyzeduration', '0',
-                        '-loglevel', '0',
-                        '-f', 's16le',
-                        '-ar', '48000',
-                        '-ac', '2',
-                        'pipe:1'
-                    ]);
-
-                    const resource = createAudioResource(ffmpegProcess.stdout, { 
-                        inputType: StreamType.Raw 
-                    });
-
-                    player.play(resource);
-
-                    player.on(AudioPlayerStatus.Idle, () => {
-                        connection.destroy();
-                        fs.unlink(tempFile, () => {});
-                    });
-
-                    player.on('error', (err) => {
-                        console.error('TTS player error:', err.message);
-                        connection.destroy();
-                        fs.unlink(tempFile, () => {});
-                    });
-
-                    resolve(true);
+                const resource = createAudioResource(response, { 
+                    inputType: StreamType.Arbitrary 
                 });
+                player.play(resource);
+
+                player.on(AudioPlayerStatus.Idle, () => {
+                    setTimeout(() => connection.destroy(), 500);
+                });
+
+                player.on('error', (err) => {
+                    console.error('TTS player error:', err.message);
+                    connection.destroy();
+                });
+
+                resolve(true);
             }).on('error', (err) => {
                 console.error('TTS download error:', err);
                 connection.destroy();
-                fs.unlink(tempFile, () => {});
                 resolve(false);
             });
 
@@ -289,7 +264,7 @@ async function playTTS(channelId, guild, text) {
 }
 
 // ============================================
-// MUSIC FUNCTION (FIXED - using ytdl)
+// MUSIC FUNCTION (FIXED - play-dl)
 // ============================================
 function getMusicQueue(guildId, channelId, guild) {
     if (!musicQueues.has(guildId)) {
@@ -344,14 +319,9 @@ async function playNext(guildId) {
     console.log('🎵 Playing:', song.title);
 
     try {
-        const stream = ytdl(song.url, { 
-            filter: 'audioonly', 
-            quality: 'highestaudio',
-            highWaterMark: 1 << 25 
-        });
-
-        const resource = createAudioResource(stream, { 
-            inputType: StreamType.Arbitrary,
+        const stream = await playdl.stream(song.url, { quality: 2 });
+        const resource = createAudioResource(stream.stream, { 
+            inputType: stream.type,
             inlineVolume: true
         });
 
@@ -359,7 +329,7 @@ async function playNext(guildId) {
         queue.player.play(resource);
 
     } catch (e) {
-        console.error('Play error:', e);
+        console.error('Play error:', e.message);
         queue.songs.shift();
         playNext(guildId);
     }
@@ -497,20 +467,10 @@ client.on('messageCreate', async (message) => {
                 const player = createAudioPlayer();
                 connection.subscribe(player);
 
-                const tempFile = `./react_${Date.now()}.mp3`;
-                const file = fs.createWriteStream(tempFile);
                 https.get(url, (response) => {
-                    response.pipe(file);
-                    file.on('finish', () => {
-                        file.close();
-                        const ffmpegProcess = spawn(ffmpeg, ['-i', tempFile, '-analyzeduration', '0', '-loglevel', '0', '-f', 's16le', '-ar', '48000', '-ac', '2', 'pipe:1']);
-                        const resource = createAudioResource(ffmpegProcess.stdout, { inputType: StreamType.Raw });
-                        player.play(resource);
-                        player.on(AudioPlayerStatus.Idle, () => { 
-                            connection.destroy(); 
-                            fs.unlink(tempFile, () => {});
-                        });
-                    });
+                    const resource = createAudioResource(response, { inputType: StreamType.Arbitrary });
+                    player.play(resource);
+                    player.on(AudioPlayerStatus.Idle, () => { setTimeout(() => connection.destroy(), 500); });
                 });
                 break;
             } catch (e) { console.error('Reaction error:', e); }
@@ -569,7 +529,7 @@ client.on('interactionCreate', async interaction => {
         await interaction.reply({ embeds: [embed], ephemeral: true });
     }
 
-    // ==================== TTS (FIXED) ====================
+    // ==================== TTS ====================
 
     else if (commandName === 'say') {
         const text = interaction.options.getString('text');
@@ -580,10 +540,10 @@ client.on('interactionCreate', async interaction => {
         const success = await playTTS(voiceChannel.id, interaction.guild, text);
 
         if (success) await interaction.editReply({ content: `🔊 "${text.substring(0, 100)}${text.length > 100 ? '...' : ''}"` });
-        else await interaction.editReply({ content: '❌ فشل تشغيل TTS! تأكد من ffmpeg.' });
+        else await interaction.editReply({ content: '❌ فشل تشغيل TTS!' });
     }
 
-    // ==================== MUSIC (FIXED) ====================
+    // ==================== MUSIC ====================
 
     else if (commandName === 'play') {
         const query = interaction.options.getString('query');
@@ -598,21 +558,25 @@ client.on('interactionCreate', async interaction => {
             let videoDuration = '?';
             let thumbnail = null;
 
-            // If not a URL, search using ytdl
+            // If not a URL, search with play-dl
             if (!query.startsWith('http')) {
                 await interaction.editReply({ content: '🔍 جاري البحث...' });
-                // ytdl doesn't have search, use basic info from URL or tell user to use URL
-                return interaction.editReply({ content: '❌ استعمل رابط يوتيوب مباشر! (ytdl لا يدعم البحث)\nمثال: `https://youtube.com/watch?v=...`' });
-            }
-
-            // Get info from URL
-            try {
-                const info = await ytdl.getInfo(videoUrl);
-                videoTitle = info.videoDetails.title;
-                videoDuration = new Date(info.videoDetails.lengthSeconds * 1000).toISOString().substr(14, 5);
-                thumbnail = info.videoDetails.thumbnails[0]?.url;
-            } catch (e) {
-                console.log('Info error:', e.message);
+                const results = await playdl.search(query, { limit: 1, source: { youtube: 'video' } });
+                if (!results || results.length === 0) return interaction.editReply('❌ ما لقيتش الأغنية!');
+                videoUrl = results[0].url;
+                videoTitle = results[0].title;
+                videoDuration = results[0].durationRaw || '?';
+                thumbnail = results[0].thumbnails[0]?.url;
+            } else {
+                // Get info from URL
+                try {
+                    const info = await playdl.video_info(query);
+                    videoTitle = info.video_details.title;
+                    videoDuration = info.video_details.durationRaw || '?';
+                    thumbnail = info.video_details.thumbnails[0]?.url;
+                } catch (e) {
+                    console.log('Info error:', e.message);
+                }
             }
 
             const song = {
