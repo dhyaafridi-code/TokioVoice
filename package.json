@@ -2,10 +2,10 @@
   "name": "discord-bot-fixed",
   "version": "2.1.0",
   "description": "Bot Discord - Fixed Audio",
-  "main": "bot-fixed.js",
+  "main": "bot-full.js",
   "scripts": {
-    "start": "node bot-fixed.js",
-    "dev": "nodemon bot-fixed.js"
+    "start": "node bot-full.js",
+    "dev": "nodemon bot-full.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
@@ -15,7 +15,8 @@
     "express": "^4.18.2",
     "ffmpeg-static": "^5.2.0",
     "google-tts-api": "^2.0.1",
-    "node-cron": "^3.0.3"
+    "node-cron": "^3.0.3",
+    "opusscript": "^0.1.8"
   },
   "engines": {
     "node": ">=18.0.0"
