@@ -22,11 +22,10 @@ const {
 
 const express = require('express');
 const cron = require('node-cron');
-const playdl = require('play-dl');
+const ytext = require('youtube-ext');
 const googleTTS = require('google-tts-api');
 const fs = require('fs');
 const https = require('https');
-const { spawn } = require('child_process');
 
 // ============================================
 // CONFIG
@@ -213,7 +212,7 @@ function updateStats(userId, action) {
 }
 
 // ============================================
-// TTS FUNCTION (FIXED - direct stream)
+// TTS FUNCTION
 // ============================================
 async function playTTS(channelId, guild, text) {
     return new Promise(async (resolve) => {
@@ -233,7 +232,6 @@ async function playTTS(channelId, guild, text) {
             });
             connection.subscribe(player);
 
-            // Direct HTTPS stream with Opus encoding via prism-media
             https.get(url, (response) => {
                 const resource = createAudioResource(response, { 
                     inputType: StreamType.Arbitrary 
@@ -264,7 +262,7 @@ async function playTTS(channelId, guild, text) {
 }
 
 // ============================================
-// MUSIC FUNCTION (FIXED - play-dl)
+// MUSIC FUNCTION (youtube-ext)
 // ============================================
 function getMusicQueue(guildId, channelId, guild) {
     if (!musicQueues.has(guildId)) {
@@ -319,9 +317,10 @@ async function playNext(guildId) {
     console.log('🎵 Playing:', song.title);
 
     try {
-        const stream = await playdl.stream(song.url, { quality: 2 });
-        const resource = createAudioResource(stream.stream, { 
-            inputType: stream.type,
+        // youtube-ext stream
+        const stream = await ytext.stream(song.url, { quality: 'audio' });
+        const resource = createAudioResource(stream, { 
+            inputType: StreamType.Arbitrary,
             inlineVolume: true
         });
 
@@ -543,7 +542,7 @@ client.on('interactionCreate', async interaction => {
         else await interaction.editReply({ content: '❌ فشل تشغيل TTS!' });
     }
 
-    // ==================== MUSIC ====================
+    // ==================== MUSIC (youtube-ext) ====================
 
     else if (commandName === 'play') {
         const query = interaction.options.getString('query');
@@ -558,22 +557,22 @@ client.on('interactionCreate', async interaction => {
             let videoDuration = '?';
             let thumbnail = null;
 
-            // If not a URL, search with play-dl
+            // If not a URL, search with youtube-ext
             if (!query.startsWith('http')) {
                 await interaction.editReply({ content: '🔍 جاري البحث...' });
-                const results = await playdl.search(query, { limit: 1, source: { youtube: 'video' } });
+                const results = await ytext.search(query, { limit: 1 });
                 if (!results || results.length === 0) return interaction.editReply('❌ ما لقيتش الأغنية!');
                 videoUrl = results[0].url;
                 videoTitle = results[0].title;
-                videoDuration = results[0].durationRaw || '?';
-                thumbnail = results[0].thumbnails[0]?.url;
+                videoDuration = results[0].duration?.timestamp || '?';
+                thumbnail = results[0].thumbnail?.url;
             } else {
                 // Get info from URL
                 try {
-                    const info = await playdl.video_info(query);
-                    videoTitle = info.video_details.title;
-                    videoDuration = info.video_details.durationRaw || '?';
-                    thumbnail = info.video_details.thumbnails[0]?.url;
+                    const info = await ytext.videoInfo(query);
+                    videoTitle = info.basic_info.title;
+                    videoDuration = info.basic_info.duration || '?';
+                    thumbnail = info.basic_info.thumbnail?.[0]?.url;
                 } catch (e) {
                     console.log('Info error:', e.message);
                 }
