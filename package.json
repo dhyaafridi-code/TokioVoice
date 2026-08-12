@@ -1,22 +1,22 @@
 {
-  "name": "discord-bot-fixed",
-  "version": "2.1.0",
-  "description": "Bot Discord - Fixed Audio",
-  "main": "bot-full.js",
+  "name": "discord-bot-final",
+  "version": "2.2.0",
+  "description": "Bot Discord - Final Fixed Version",
+  "main": "bot-final.js",
   "scripts": {
-    "start": "node bot-full.js",
-    "dev": "nodemon bot-full.js"
+    "start": "node bot-final.js",
+    "dev": "nodemon bot-final.js"
   },
   "dependencies": {
     "@discordjs/voice": "^0.16.1",
-    "@distube/ytdl-core": "^4.16.0",
     "discord.js": "^14.14.1",
     "dotenv": "^16.3.1",
     "express": "^4.18.2",
-    "ffmpeg-static": "^5.2.0",
     "google-tts-api": "^2.0.1",
     "node-cron": "^3.0.3",
-    "opusscript": "*"
+    "opusscript": "^0.0.8",
+    "play-dl": "^1.9.7",
+    "sodium-native": "^4.0.4"
   },
   "engines": {
     "node": ">=18.0.0"
